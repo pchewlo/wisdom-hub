@@ -18,13 +18,6 @@ ALL_MODELS.forEach((m) => {
 
 const UNIQUE_BOOKS = new Set(ALL_HIGHLIGHTS.map((h) => h.book)).size
 
-function getDailyInsight() {
-  const eligible = ALL_MODELS.filter((m) => m.count >= 5)
-  const model = eligible[Math.floor(Math.random() * eligible.length)]
-  const ids = [...model.highlightIds].sort(() => Math.random() - 0.5)
-  return { model, highlights: ids.slice(0, 3).map((id) => ALL_HIGHLIGHTS[id]) }
-}
-
 /* ── COLORS ── */
 const c = {
   bg: '#FAF7F2', bgWarm: '#F5F0E8', bgCard: '#FFFFFF',
@@ -43,10 +36,10 @@ export default function App() {
   const [activeModel, setActiveModel] = useState(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('count')
-  const [daily, setDaily] = useState(() => getDailyInsight())
   const [solverQuery, setSolverQuery] = useState('')
   const [solverLoading, setSolverLoading] = useState(false)
   const [solverResults, setSolverResults] = useState(null)
+  const [cardIndex, setCardIndex] = useState(0)
 
   /* Filtered models */
   const filteredModels = useMemo(() => {
@@ -106,6 +99,7 @@ export default function App() {
       if (!response.ok) throw new Error('API returned ' + response.status)
       const data = await response.json()
       if (data.error) throw new Error(data.error)
+      setCardIndex(0)
       setSolverResults(data)
     } catch (err) {
       console.error(err)
@@ -175,51 +169,69 @@ export default function App() {
           </div>
 
           {solverLoading && (
-            <div style={{ fontFamily: serif, fontStyle: 'italic', color: c.textMuted, padding: '1.5rem 0', textAlign: 'center' }}>
+            <div style={{ fontFamily: serif, fontStyle: 'italic', color: c.textMuted, padding: '2rem 0', textAlign: 'center', fontSize: '1rem' }}>
               Searching your library for wisdom...
             </div>
           )}
 
-          {solverResults && (
-            <div style={{ marginTop: '1.1rem' }}>
-              {solverResults.intro && (
-                <p style={{ fontFamily: serif, fontSize: '0.95rem', lineHeight: 1.7, color: c.text, marginBottom: '0.8rem' }}>{solverResults.intro}</p>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                {(solverResults.quotes || []).map((q, i) => (
-                  <div key={i} style={{ padding: '1rem 1.2rem', background: c.bgWarm, borderRadius: 10, borderLeft: `3px solid ${c.gold}` }}>
-                    <div style={{ fontFamily: serif, fontSize: '0.92rem', lineHeight: 1.7, fontStyle: 'italic', color: c.text }}>"{q.text}"</div>
-                    <div style={{ fontSize: '0.68rem', color: c.textMuted, marginTop: '0.4rem', fontWeight: 500 }}>
-                      {q.book}{q.author ? ` — ${q.author}` : ''}
-                      {q.model && <span style={{ display: 'inline-block', fontSize: '0.6rem', color: c.green, background: c.greenPale, padding: '0.12rem 0.45rem', borderRadius: 3, marginLeft: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{q.model}</span>}
+          {solverResults && (() => {
+            const quotes = solverResults.quotes || []
+            const current = quotes[cardIndex]
+            if (!current && !solverResults.intro) return null
+            return (
+              <div style={{ marginTop: '1.4rem' }}>
+                {solverResults.intro && (
+                  <p style={{ fontFamily: serif, fontSize: '1.05rem', lineHeight: 1.8, color: c.textSec, marginBottom: '1.4rem' }}>{solverResults.intro}</p>
+                )}
+                {current && (
+                  <div style={{ background: c.bgWarm, borderRadius: 14, padding: '2rem 2.2rem', position: 'relative', minHeight: 180 }}>
+                    <div style={{ fontFamily: serif, fontSize: '1.25rem', lineHeight: 1.85, color: c.text, marginBottom: '1.2rem' }}>
+                      "{current.text}"
                     </div>
-                    {q.application && <div style={{ fontSize: '0.78rem', color: c.textSec, marginTop: '0.45rem', lineHeight: 1.5 }}>{q.application}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                      <span style={{ fontFamily: sans, fontSize: '0.8rem', color: c.gold, fontWeight: 600 }}>{current.book}</span>
+                      {current.author && <span style={{ fontSize: '0.8rem', color: c.textMuted }}>— {current.author}</span>}
+                      {current.model && (
+                        <span style={{ fontSize: '0.65rem', color: c.green, background: c.greenPale, padding: '0.2rem 0.55rem', borderRadius: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{current.model}</span>
+                      )}
+                    </div>
+                    {current.application && (
+                      <div style={{ fontFamily: serif, fontSize: '0.95rem', lineHeight: 1.7, color: c.textSec, padding: '1rem 0 0', borderTop: `1px solid ${c.border}` }}>
+                        {current.application}
+                      </div>
+                    )}
+                    {quotes.length > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.4rem', paddingTop: '1rem', borderTop: `1px solid ${c.border}` }}>
+                        <button
+                          onClick={() => setCardIndex((i) => Math.max(0, i - 1))}
+                          disabled={cardIndex === 0}
+                          style={{ background: 'none', border: `1px solid ${cardIndex === 0 ? c.borderLight : c.border}`, color: cardIndex === 0 ? c.textFaint : c.textSec, padding: '0.4rem 0.9rem', borderRadius: 6, cursor: cardIndex === 0 ? 'default' : 'pointer', fontFamily: sans, fontSize: '0.78rem', fontWeight: 500 }}
+                        >
+                          Previous
+                        </button>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          {quotes.map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setCardIndex(i)}
+                              style={{ width: 8, height: 8, borderRadius: '50%', border: 'none', background: i === cardIndex ? c.green : c.border, cursor: 'pointer', padding: 0 }}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setCardIndex((i) => Math.min(quotes.length - 1, i + 1))}
+                          disabled={cardIndex === quotes.length - 1}
+                          style={{ background: 'none', border: `1px solid ${cardIndex === quotes.length - 1 ? c.borderLight : c.border}`, color: cardIndex === quotes.length - 1 ? c.textFaint : c.textSec, padding: '0.4rem 0.9rem', borderRadius: 6, cursor: cardIndex === quotes.length - 1 ? 'default' : 'pointer', fontFamily: sans, fontSize: '0.78rem', fontWeight: 500 }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* DAILY INSIGHT */}
-      <div style={{ maxWidth: 1300, margin: '0 auto', padding: '1.6rem 2rem 0' }}>
-        <div style={{ background: c.bgCard, border: `1px solid ${c.border}`, borderRadius: 12, padding: '1.4rem 1.6rem', boxShadow: '0 1px 3px rgba(26,25,23,0.04)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.7rem' }}>
-              <span style={{ fontFamily: serif, fontSize: '1.05rem', fontWeight: 600, color: c.gold }}>Daily Insight</span>
-              <span style={{ fontSize: '0.62rem', color: c.green, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, background: c.greenPale, padding: '0.22rem 0.55rem', borderRadius: 4 }}>{daily.model.name}</span>
-            </div>
-            <button onClick={() => setDaily(getDailyInsight())} style={{ background: 'none', border: `1px solid ${c.border}`, color: c.textMuted, padding: '0.28rem 0.7rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.7rem', fontWeight: 500, fontFamily: sans }}>↻ Refresh</button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-            {daily.highlights.map((h, i) => (
-              <div key={i} style={{ padding: '0.85rem 1rem', background: c.bgWarm, borderRadius: 8, borderLeft: `2px solid ${c.gold}` }}>
-                <div style={{ fontFamily: serif, fontSize: '0.9rem', lineHeight: 1.65, fontStyle: 'italic', color: c.text }}>"{h.text}"</div>
-                <div style={{ fontSize: '0.66rem', color: c.textMuted, marginTop: '0.35rem', fontWeight: 500 }}>{h.book}{h.author ? ` — ${h.author}` : ''}</div>
-              </div>
-            ))}
-          </div>
+            )
+          })()}
         </div>
       </div>
 
