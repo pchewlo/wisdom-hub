@@ -97,38 +97,11 @@ export default function App() {
     setSolverLoading(true)
     setSolverResults(null)
 
-    const qLower = q.toLowerCase()
-    const words = qLower.split(/\s+/).filter((w) => w.length > 3)
-
-    const scored = ALL_HIGHLIGHTS.map((h, i) => {
-      let score = 0
-      const tL = h.text.toLowerCase()
-      const bL = h.book.toLowerCase()
-      words.forEach((w) => {
-        if (tL.includes(w)) score += 2
-        if (bL.includes(w)) score += 1
-      })
-      if (H2M[i]) score += 1
-      return { ...h, score, models: H2M[i] || [] }
-    })
-    scored.sort((a, b) => b.score - a.score)
-    const top = scored.filter((h) => h.score > 0).slice(0, 12)
-    const classified = ALL_HIGHLIGHTS.map((h, i) => ({ ...h, models: H2M[i] || [] })).filter((h) => h.models.length > 0)
-    const rand = [...classified].sort(() => Math.random() - 0.5).slice(0, 8)
-    const seen = new Set()
-    const cands = [...top, ...rand]
-      .filter((h) => { if (seen.has(h.id)) return false; seen.add(h.id); return true })
-      .slice(0, 18)
-    const ctx = cands
-      .map((h) => `[${h.book}] "${h.text.slice(0, 200)}" ${h.models.length ? '{' + h.models[0] + '}' : ''}`)
-      .join('\n')
-    const modelNames = ALL_MODELS.map((m) => m.name).join(', ')
-
     try {
       const response = await fetch('/api/solve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, highlights: ctx, modelNames }),
+        body: JSON.stringify({ query: q }),
       })
       if (!response.ok) throw new Error('API returned ' + response.status)
       const data = await response.json()
